@@ -48,12 +48,16 @@ class FlashInferB12xExperts(mk.FusedMoEExpertsModular):
         quant_config: FusedMoEQuantConfig,
     ):
         super().__init__(moe_config=moe_config, quant_config=quant_config)
-        assert quant_config.quant_dtype == "nvfp4", (
-            "FlashInferB12xExperts only supports nvfp4 quantization."
+        assert quant_config.weight_quant_dtype == "nvfp4", (
+            "FlashInferB12xExperts only supports nvfp4 weight quantization."
         )
         self.out_dtype = moe_config.in_dtype
         self.num_local_experts = moe_config.num_local_experts
         self.ep_rank = moe_config.moe_parallel_config.ep_rank
+        self.activation_precision = (
+            "fp4" if quant_config.a1_gscale is not None else "bf16"
+        )
+        self.source_format = quant_config.source_format or "modelopt"
         # FC2 input scale tensor bound in process_weights_after_loading: the
         # calibrated (now-zeroed) a2_gscale for static-quant checkpoints, or
         # a synthesized uniform-1.0 tensor for W4A16 checkpoints that lack
@@ -242,5 +246,7 @@ class FlashInferB12xExperts(mk.FusedMoEExpertsModular):
             top_k=top_k,
             num_local_experts=self.num_local_experts,
             output_dtype=self.out_dtype,
+            activation_precision=self.activation_precision,
+            source_format=self.source_format,
             output=output,
         )
